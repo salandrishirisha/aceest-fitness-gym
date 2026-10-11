@@ -1,0 +1,52 @@
+name: ACEest Fitness & Gym CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-lint-test:
+    name: Build, Lint, and Container Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Stage 1 - Build & Lint (Syntax & Standards)
+        run: |
+          flake8 .
+
+      - name: Stage 2 - Execute Pytest Suite (Host Environment)
+        run: |
+          pytest -v --cov=app tests/
+
+      - name: Stage 3 - Docker Image Assembly
+        run: |
+          docker build -t aceest-fitness-gym:${{ github.sha }} .
+
+      - name: Stage 4 - Automated Testing Inside Containerized Environment
+        run: |
+          docker run --rm aceest-fitness-gym:${{ github.sha }} pytest -v tests/
+
+      - name: Stage 5 - Container Quality Gate Health Check
+        run: |
+          docker run -d -p 5000:5000 --name test-container aceest-fitness-gym:${{ github.sha }}
+          sleep 3
+          curl --fail http://localhost:5000/health || exit 1
+          docker stop test-container
+
+        
