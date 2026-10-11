@@ -28,7 +28,7 @@ jobs:
 
       - name: Stage 1 - Build & Lint (Syntax & Standards)
         run: |
-          flake8 . --ignore=W391,W291,W292,W293,E203,W503 --max-line-length=100
+          flake8 . --ignore=W391,W291,W292,W293,E203,W503 --ignore=W391,W291,W292,W293,E203,W503 --max-line-length=100
 
       - name: Stage 2 - Execute Pytest Suite (Host Environment)
         run: |
