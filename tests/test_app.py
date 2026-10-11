@@ -259,4 +259,3 @@ class TestProgressAndMetricsEndpoints:
     def test_add_metrics_missing_client(self, client):
         res = client.post("/api/metrics", json={"weight": 80.0})
         assert res.status_code == 400
-        
