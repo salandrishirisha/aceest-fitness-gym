@@ -173,7 +173,10 @@ def create_app(test_config=None):
 
         conn = db()
         cur = conn.cursor()
-        cur.execute("SELECT username, role FROM users WHERE username=? AND password=?", (username, password))
+        cur.execute(
+            "SELECT username, role FROM users WHERE username=? AND password=?",
+            (username, password)
+        )
         user = cur.fetchone()
         conn.close()
 
@@ -291,7 +294,10 @@ def create_app(test_config=None):
         conn = db()
         cur = conn.cursor()
         if client_name:
-            cur.execute("SELECT * FROM workouts WHERE client_name=? ORDER BY date DESC", (client_name,))
+            cur.execute(
+                "SELECT * FROM workouts WHERE client_name=? ORDER BY date DESC",
+                (client_name,)
+            )
         else:
             cur.execute("SELECT * FROM workouts ORDER BY date DESC")
         rows = [dict(row) for row in cur.fetchall()]
@@ -412,7 +418,10 @@ def create_app(test_config=None):
         conn = db()
         cur = conn.cursor()
         if client_name:
-            cur.execute("SELECT * FROM metrics WHERE client_name=? ORDER BY date DESC", (client_name,))
+            cur.execute(
+                "SELECT * FROM metrics WHERE client_name=? ORDER BY date DESC",
+                (client_name,)
+            )
         else:
             cur.execute("SELECT * FROM metrics ORDER BY date DESC")
         rows = [dict(row) for row in cur.fetchall()]
@@ -453,3 +462,4 @@ app = create_app()
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+    
