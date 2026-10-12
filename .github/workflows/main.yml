@@ -48,5 +48,3 @@ jobs:
           sleep 3
           curl --fail http://localhost:5000/health || exit 1
           docker stop test-container
-
-        
