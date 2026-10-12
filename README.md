@@ -519,6 +519,7 @@ sudo -u jenkins -g docker docker ps
 - Treat successful CI tests as quality evidence, not a substitute for production security and operational reviews.
 
 ![alt text](image.png)
+![alt text](image.png)
 ## 18. Conclusion
 
 ACEest Fitness & Gym demonstrates an incremental application lifecycle, from a Flask-based fitness management backend to a browser-based dashboard, supported by automated DevOps practices.
