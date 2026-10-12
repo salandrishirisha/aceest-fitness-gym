@@ -1,52 +1,42 @@
-name: ACEest Fitness & Gym CI/CD Pipeline
+```yaml
+name: ACEest Fitness Version 2 CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
-  build-lint-test:
-    name: Build, Lint, and Container Validation
+  build-test:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: version-2
+
     steps:
-      - name: Checkout Source Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
 
-      - name: Stage 1 - Build & Lint (Syntax & Standards)
-        run: |
-          flake8 . --ignore=W391,W291,W292,W293,E203,W503 --ignore=W391,W291,W292,W293,E203,W503 --ignore=W391,W291,W292,W293,E203,W503 --max-line-length=100
+      - name: Compile Python
+        run: python -m compileall -q app.py tests
 
-      - name: Stage 2 - Execute Pytest Suite (Host Environment)
-        run: |
-          pytest -v --cov=app tests/
+      - name: Lint
+        run: python -m flake8 app.py tests
 
-      - name: Stage 3 - Docker Image Assembly
-        run: |
-          docker build -t aceest-fitness-gym:${{ github.sha }} .
+      - name: Run unit tests
+        run: python -m pytest -v --cov=app --cov-report=term-missing tests
 
-      - name: Stage 4 - Automated Testing Inside Containerized Environment
-        run: |
-          docker run --rm aceest-fitness-gym:${{ github.sha }} pytest -v tests/
+      - name: Build Docker image
+        run: docker build -t aceest-fitness-v2:ci .
 
-      - name: Stage 5 - Container Quality Gate Health Check
-        run: |
-          docker run -d -p 5000:5000 --name test-container aceest-fitness-gym:${{ github.sha }}
-          sleep 3
-          curl --fail http://localhost:5000/health || exit 1
-          docker stop test-container
-
-        
+      - name: Test inside Docker container
+        run: docker run --rm aceest-fitness-v2:ci python -m pytest -v tests
+```
