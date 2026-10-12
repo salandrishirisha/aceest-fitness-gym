@@ -1,0 +1,121 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACEest Fitness | Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">A</div>
+            <div>
+                <h2>ACEest</h2>
+                <span>FITNESS CLUB</span>
+            </div>
+        </div>
+
+        <p class="menu-label">WORKSPACE</p>
+        <a class="nav-link active" href="/">▦ &nbsp; Dashboard</a>
+        <a class="nav-link" href="#clients">♙ &nbsp; Members</a>
+        <a class="nav-link" href="#workouts">⌁ &nbsp; Workouts</a>
+        <a class="nav-link" href="#progress">↗ &nbsp; Progress</a>
+
+        <div class="sidebar-footer">
+            <div class="avatar">AF</div>
+            <div>
+                <strong>Fitness Admin</strong>
+                <span>Management Portal</span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <span class="eyebrow">OVERVIEW</span>
+                <h1>Dashboard</h1>
+                <p>Welcome back! Here's your gym at a glance.</p>
+            </div>
+            <div class="status-pill"><span></span> System operational</div>
+        </header>
+
+        <section class="welcome-card">
+            <div>
+                <span class="eyebrow light">YOUR FITNESS BUSINESS</span>
+                <h2>Build stronger habits.<br>Build a stronger community.</h2>
+                <p>Manage members, workouts and progress in one place.</p>
+            </div>
+            <div class="welcome-symbol">✦</div>
+        </section>
+
+        <section class="stats-grid">
+            <article class="stat-card">
+                <div class="stat-heading">
+                    <span>Total Members</span><span class="stat-icon purple">♙</span>
+                </div>
+                <h2>{{ stats.total_clients }}</h2>
+                <p>Registered clients</p>
+            </article>
+
+            <article class="stat-card">
+                <div class="stat-heading">
+                    <span>Active Memberships</span><span class="stat-icon green">✓</span>
+                </div>
+                <h2>{{ stats.active_members }}</h2>
+                <p>Currently active</p>
+            </article>
+
+            <article class="stat-card">
+                <div class="stat-heading">
+                    <span>Workouts Logged</span><span class="stat-icon orange">⌁</span>
+                </div>
+                <h2>{{ stats.total_workouts }}</h2>
+                <p>Total recorded sessions</p>
+            </article>
+
+            <article class="stat-card">
+                <div class="stat-heading">
+                    <span>Exercises</span><span class="stat-icon blue">✳</span>
+                </div>
+                <h2>{{ stats.total_exercises }}</h2>
+                <p>Exercises recorded</p>
+            </article>
+        </section>
+
+        <section class="section-heading">
+            <div>
+                <h2>Quick access</h2>
+                <p>Jump into your everyday tasks.</p>
+            </div>
+        </section>
+
+        <section class="actions-grid">
+            <a href="#clients" class="action-card" id="clients">
+                <div class="action-icon purple">♙</div>
+                <h3>Member Management</h3>
+                <p>Manage client records and memberships.</p>
+                <span class="action-link">Explore members →</span>
+            </a>
+
+            <a href="#workouts" class="action-card" id="workouts">
+                <div class="action-icon orange">⌁</div>
+                <h3>Workout Tracking</h3>
+                <p>Keep track of workout sessions and exercises.</p>
+                <span class="action-link">Explore workouts →</span>
+            </a>
+
+            <a href="#progress" class="action-card" id="progress">
+                <div class="action-icon green">↗</div>
+                <h3>Progress & Metrics</h3>
+                <p>Review progress records and fitness measurements.</p>
+                <span class="action-link">Explore progress →</span>
+            </a>
+        </section>
+
+        <footer>ACEest Fitness & Gym Management · Version 2.0.0</footer>
+    </main>
+</body>
+</html>
