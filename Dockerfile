@@ -5,7 +5,8 @@ FROM python:3.11-slim
 # Set environment variables for Python performance & clean output
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=5000
+    PORT=5000 \
+    ACEEST_DB=/app/data/aceest_fitness.db
 
 # Install curl for container HEALTHCHECK
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
@@ -26,8 +27,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source code
 COPY . .
 
-# Set correct ownership for non-root user
-RUN chown -R appuser:appgroup /app
+# Writable data directory for SQLite and correct ownership for non-root user
+RUN mkdir -p /app/data && chown -R appuser:appgroup /app
 
 # Switch to non-root user for security
 USER appuser
