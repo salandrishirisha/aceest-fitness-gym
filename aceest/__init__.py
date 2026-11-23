@@ -8,7 +8,7 @@ from .db import DB_NAME, init_db
 from .validation import ValidationError
 
 APP_NAME = "ACEest Fitness & Gym"
-APP_VERSION = "3.0.0"
+APP_VERSION = "4.0.0"
 
 
 def create_app(test_config=None):
@@ -30,6 +30,12 @@ def create_app(test_config=None):
     @app.context_processor
     def inject_release_info():
         return {"version": APP_VERSION, "track": os.environ.get("DEPLOYMENT_TRACK", "stable")}
+
+    @app.after_request
+    def add_release_headers(response):
+        response.headers["X-App-Version"] = APP_VERSION
+        response.headers["X-Deployment-Track"] = os.environ.get("DEPLOYMENT_TRACK", "stable")
+        return response
 
     @app.errorhandler(ValidationError)
     def handle_validation_error(err):
