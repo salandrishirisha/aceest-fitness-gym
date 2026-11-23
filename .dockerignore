@@ -6,3 +6,12 @@ __pycache__
 .venv
 venv
 *.db
+k8s
+scripts
+reports
+Jenkinsfile
+sonar-project.properties
+*.png
+.coverage
+coverage.xml
+.scannerwork

@@ -26,3 +26,8 @@ htmlcov/
 *.swp
 .DS_Store
 Thumbs.db
+# CI reports and build artifacts
+reports/
+dist/
+.scannerwork/
+coverage.xml
