@@ -33,7 +33,7 @@ jobs:
         run: python -m flake8 app.py aceest tests
 
       - name: Stage 2 - Host Unit Tests
-        run: python -m pytest -v --cov=aceest --cov-report=term-missing tests
+        run: python -m pytest -v --cov --cov-report=term-missing
 
       - name: Stage 3 - Docker Image Assembly
         run: docker build -t aceest-fitness:${{ github.sha }} .

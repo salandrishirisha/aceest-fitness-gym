@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-ab-b
+  namespace: aceest
+spec:
+  type: ClusterIP
+  selector:
+    app: aceest-ab
+    variant: b
+  ports:
+    - port: 5000
+      targetPort: 5000
+

@@ -401,3 +401,19 @@ class TestClientSummary:
 
     def test_summary_client_not_found(self, client):
         assert client.get("/api/clients/Nobody/summary").status_code == 404
+
+
+class TestReleaseHeaders:
+    """Test release headers used to verify blue-green, canary, A/B and shadow routing."""
+
+    def test_release_headers_on_api_and_pages(self, client):
+        for path in ("/health", "/", "/api/clients"):
+            response = client.get(path)
+            assert response.headers["X-App-Version"] == APP_VERSION
+            assert response.headers["X-Deployment-Track"] == "stable"
+
+    def test_track_header_follows_environment(self, client, monkeypatch):
+        monkeypatch.setenv("DEPLOYMENT_TRACK", "green")
+        response = client.get("/health")
+        assert response.headers["X-Deployment-Track"] == "green"
+        assert b"green track" in client.get("/").data
