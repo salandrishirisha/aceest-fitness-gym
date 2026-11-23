@@ -11,15 +11,16 @@ pipeline {
 
     parameters {
         choice(name: 'DEPLOY_STRATEGY',
-               choices: ['rolling', 'blue-green', 'canary', 'canary-promote', 'shadow', 'ab-testing', 'all', 'none'],
+               choices: ['none', 'rolling', 'blue-green', 'canary', 'canary-promote', 'shadow', 'ab-testing', 'all'],
                description: 'Kubernetes release strategy for this build')
         string(name: 'STABLE_TAG', defaultValue: '3.0.0', description: 'Last known good version used for rollback')
-        booleanParam(name: 'PUSH_IMAGE', defaultValue: true, description: 'Push the image to Docker Hub')
+        booleanParam(name: 'PUSH_IMAGE', defaultValue: false, description: 'Push the image to Docker Hub')
     }
 
     environment {
         IMAGE_REPO      = 'docker.io/salandrishirisha/aceest-fitness'
         SONAR_HOST_URL  = 'http://localhost:9000'
+        SONAR_SCANNER   = '/opt/sonar-scanner/bin/sonar-scanner'
         VENV            = "${WORKSPACE}/.venv"
     }
 
@@ -71,9 +72,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                        docker run --rm --network host \
-                            -e SONAR_HOST_URL="$SONAR_HOST_URL" -e SONAR_TOKEN="$SONAR_TOKEN" \
-                            -v "$WORKSPACE:/usr/src" sonarsource/sonar-scanner-cli:latest \
+                        "$SONAR_SCANNER" -Dsonar.host.url="$SONAR_HOST_URL" -Dsonar.token="$SONAR_TOKEN" \
                             -Dsonar.projectVersion="$APP_VERSION" -Dsonar.qualitygate.wait=true
                     '''
                 }

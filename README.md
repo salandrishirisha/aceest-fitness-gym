@@ -86,7 +86,7 @@ The VM needs at least 4 vCPU, 8 GB RAM and 40 GB disk.
 sudo dnf -y install git
 git clone https://github.com/salandrishirisha/aceest-fitness-gym.git
 cd aceest-fitness-gym
-sudo bash scripts/rocky-setup.sh        # Git, Python 3.11, Docker, VS Code, Java 17, Jenkins, kubectl, Minikube, SonarQube
+sudo bash scripts/rocky-setup.sh        # Git, Python 3.11, Docker, VS Code, Java 21, Jenkins, kubectl, Minikube, SonarQube, sonar-scanner
 # log out and back in (docker group), then:
 minikube start --driver=docker --cpus=2 --memory=4096
 minikube addons enable ingress
@@ -185,8 +185,7 @@ If a rolling update fails its rollout check (for example, a bad image or failing
 
 ```bash
 python -m pytest --cov --cov-report=xml:reports/coverage.xml --junitxml=reports/junit.xml
-docker run --rm --network host -e SONAR_HOST_URL=http://localhost:9000 -e SONAR_TOKEN=<token> \
-  -v "$PWD:/usr/src" sonarsource/sonar-scanner-cli
+sonar-scanner -Dsonar.host.url=http://localhost:9000 -Dsonar.token=<token>
 ```
 
 Results of the local analysis of v4.0.0:
