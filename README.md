@@ -56,7 +56,7 @@ k8s/                       rolling, blue-green, canary, shadow, ab-testing manif
 ## 4. Run Locally
 
 ```bash
-python3.11 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m flake8 app.py aceest tests
 python -m pytest --cov --cov-report=term-missing
@@ -78,7 +78,7 @@ The VM needs at least 4 vCPU, 8 GB RAM and 40 GB disk.
 
 ```bash
 # Python, Git, unzip
-sudo dnf -y install git python3.11 python3.11-pip unzip wget
+sudo dnf -y install git python3 python3-pip unzip wget
 
 # VS Code
 sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc

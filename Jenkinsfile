@@ -45,7 +45,7 @@ pipeline {
         stage('Install & Lint') {
             steps {
                 sh '''
-                    python3.11 -m venv "$VENV"
+                    python3 -m venv "$VENV"
                     "$VENV/bin/pip" install -q --upgrade pip
                     "$VENV/bin/pip" install -q -r requirements.txt
                     "$VENV/bin/python" -m compileall -q app.py aceest tests
