@@ -8,10 +8,10 @@ import os
 import sqlite3
 import random
 from datetime import datetime, timezone, date
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 
 APP_NAME = "ACEest Fitness & Gym"
-APP_VERSION = "1.0.0"
+APP_VERSION = "2.0.0"
 DB_NAME = os.environ.get("ACEEST_DB", "aceest_fitness.db")
 
 PROGRAM_TEMPLATES = {
@@ -165,13 +165,38 @@ def create_app(test_config=None):
 
     # ------------------ Web / Health Endpoints ------------------
 
+    def get_dashboard_stats():
+        """Summarise members, memberships, workouts and exercises for the dashboard."""
+        queries = {
+            "total_clients": "SELECT COUNT(*) FROM clients",
+            "active_members": "SELECT COUNT(*) FROM clients WHERE membership_status = 'Active'",
+            "total_workouts": "SELECT COUNT(*) FROM workouts",
+            "total_exercises": "SELECT COUNT(*) FROM exercises",
+        }
+        stats = dict.fromkeys(queries, 0)
+        conn = db()
+        try:
+            for key, sql in queries.items():
+                stats[key] = conn.execute(sql).fetchone()[0]
+        except sqlite3.Error:
+            app.logger.exception("Could not read dashboard statistics")
+        finally:
+            conn.close()
+        return stats
+
     @app.route("/")
+    def dashboard():
+        return render_template("index.html", stats=get_dashboard_stats(), version=APP_VERSION)
+
+    @app.route("/api")
     def index():
         return jsonify({
             "service": "ACEest Fitness & Gym Web Application",
             "version": APP_VERSION,
             "status": "operational",
             "endpoints": [
+                "/",
+                "/api",
                 "/health",
                 "/version",
                 "/api/auth/login",
