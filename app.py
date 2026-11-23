@@ -10,6 +10,8 @@ import random
 from datetime import datetime, timezone, date
 from flask import Flask, request, jsonify
 
+APP_NAME = "ACEest Fitness & Gym"
+APP_VERSION = "1.0.0"
 DB_NAME = os.environ.get("ACEEST_DB", "aceest_fitness.db")
 
 PROGRAM_TEMPLATES = {
@@ -17,6 +19,36 @@ PROGRAM_TEMPLATES = {
     "Muscle Gain": ["Push/Pull/Legs", "Upper/Lower Split", "Full Body Strength"],
     "Beginner": ["Full Body 3x/week", "Light Strength + Mobility"]
 }
+
+
+class ValidationError(ValueError):
+    """Raised when a request payload contains an invalid value."""
+
+
+def to_text(data, field):
+    """Read an optional text field from a payload, stripped of whitespace."""
+    value = data.get(field, "")
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValidationError(f"{field} must be a string")
+    return value.strip()
+
+
+def to_number(data, field, cast=float, default=None, minimum=0):
+    """Read an optional numeric field from a payload and validate it."""
+    value = data.get(field, default)
+    if value is None or value == "":
+        return default
+    if isinstance(value, bool):
+        raise ValidationError(f"{field} must be a number")
+    try:
+        number = cast(value)
+    except (TypeError, ValueError):
+        raise ValidationError(f"{field} must be a number") from None
+    if minimum is not None and number < minimum:
+        raise ValidationError(f"{field} must be >= {minimum}")
+    return number
 
 
 def get_db_connection(db_path=None):
@@ -137,10 +169,11 @@ def create_app(test_config=None):
     def index():
         return jsonify({
             "service": "ACEest Fitness & Gym Web Application",
-            "version": "1.0.0",
+            "version": APP_VERSION,
             "status": "operational",
             "endpoints": [
                 "/health",
+                "/version",
                 "/api/auth/login",
                 "/api/clients",
                 "/api/clients/<name>",
@@ -157,16 +190,37 @@ def create_app(test_config=None):
     def health():
         return jsonify({
             "status": "UP",
+            "version": APP_VERSION,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }), 200
+
+    @app.route("/version", methods=["GET"])
+    def version():
+        return jsonify({
+            "service": APP_NAME,
+            "version": APP_VERSION,
+            "track": os.environ.get("DEPLOYMENT_TRACK", "stable")
+        }), 200
+
+    @app.errorhandler(ValidationError)
+    def handle_validation_error(err):
+        return jsonify({"error": str(err)}), 400
+
+    @app.errorhandler(404)
+    def handle_not_found(_err):
+        return jsonify({"error": "Resource not found"}), 404
+
+    @app.errorhandler(405)
+    def handle_method_not_allowed(_err):
+        return jsonify({"error": "Method not allowed"}), 405
 
     # ------------------ Auth Endpoints ------------------
 
     @app.route("/api/auth/login", methods=["POST"])
     def login():
         data = request.get_json(silent=True) or {}
-        username = data.get("username", "").strip()
-        password = data.get("password", "").strip()
+        username = to_text(data, "username")
+        password = to_text(data, "password")
 
         if not username or not password:
             return jsonify({"error": "Username and password required"}), 400
@@ -202,17 +256,17 @@ def create_app(test_config=None):
     @app.route("/api/clients", methods=["POST"])
     def add_client():
         data = request.get_json(silent=True) or {}
-        name = data.get("name", "").strip()
+        name = to_text(data, "name")
         if not name:
             return jsonify({"error": "Client name is required"}), 400
 
-        age = data.get("age")
-        height = data.get("height")
-        weight = data.get("weight")
+        age = to_number(data, "age", int)
+        height = to_number(data, "height")
+        weight = to_number(data, "weight")
         program = data.get("program")
-        calories = data.get("calories")
-        target_weight = data.get("target_weight")
-        target_adherence = data.get("target_adherence")
+        calories = to_number(data, "calories", int)
+        target_weight = to_number(data, "target_weight")
+        target_adherence = to_number(data, "target_adherence", int)
         membership_status = data.get("membership_status", "Active")
         membership_end = data.get("membership_end")
 
@@ -307,13 +361,13 @@ def create_app(test_config=None):
     @app.route("/api/workouts", methods=["POST"])
     def add_workout():
         data = request.get_json(silent=True) or {}
-        client_name = data.get("client_name", "").strip()
+        client_name = to_text(data, "client_name")
         if not client_name:
             return jsonify({"error": "client_name is required"}), 400
 
         workout_date = data.get("date", date.today().isoformat())
         workout_type = data.get("workout_type", "Strength")
-        duration_min = data.get("duration_min", 60)
+        duration_min = to_number(data, "duration_min", int, default=60)
         notes = data.get("notes", "")
 
         conn = db()
@@ -349,10 +403,10 @@ def create_app(test_config=None):
     def add_exercise():
         data = request.get_json(silent=True) or {}
         workout_id = data.get("workout_id")
-        name = data.get("name", "").strip()
-        sets = data.get("sets", 3)
-        reps = data.get("reps", 10)
-        weight = data.get("weight", 0.0)
+        name = to_text(data, "name")
+        sets = to_number(data, "sets", int, default=3)
+        reps = to_number(data, "reps", int, default=10)
+        weight = to_number(data, "weight", default=0.0)
 
         if not workout_id or not name:
             return jsonify({"error": "workout_id and exercise name are required"}), 400
@@ -389,9 +443,11 @@ def create_app(test_config=None):
     @app.route("/api/progress", methods=["POST"])
     def add_progress():
         data = request.get_json(silent=True) or {}
-        client_name = data.get("client_name", "").strip()
-        week = data.get("week", "").strip()
-        adherence = data.get("adherence", 0)
+        client_name = to_text(data, "client_name")
+        week = to_text(data, "week")
+        adherence = to_number(data, "adherence", int, default=0)
+        if adherence > 100:
+            raise ValidationError("adherence must be <= 100")
 
         if not client_name or not week:
             return jsonify({"error": "client_name and week are required"}), 400
@@ -431,14 +487,14 @@ def create_app(test_config=None):
     @app.route("/api/metrics", methods=["POST"])
     def add_metrics():
         data = request.get_json(silent=True) or {}
-        client_name = data.get("client_name", "").strip()
+        client_name = to_text(data, "client_name")
         if not client_name:
             return jsonify({"error": "client_name is required"}), 400
 
         metric_date = data.get("date", date.today().isoformat())
-        weight = data.get("weight", 0.0)
-        waist = data.get("waist", 0.0)
-        bodyfat = data.get("bodyfat", 0.0)
+        weight = to_number(data, "weight", default=0.0)
+        waist = to_number(data, "waist", default=0.0)
+        bodyfat = to_number(data, "bodyfat", default=0.0)
 
         conn = db()
         cur = conn.cursor()
