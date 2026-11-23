@@ -1,7 +1,7 @@
 """REST API blueprint: auth, clients, workouts, exercises, progress and metrics."""
 
 import os
-import random
+import secrets
 import sqlite3
 from datetime import date, datetime, timezone
 
@@ -13,6 +13,8 @@ from .services import PROGRAM_TEMPLATES, client_summary
 from .validation import ValidationError, to_number, to_text
 
 bp = Blueprint("api", __name__)
+
+CLIENT_BY_NAME_SQL = "SELECT * FROM clients WHERE name=?"
 
 
 # ------------------ System Endpoints ------------------
@@ -150,7 +152,7 @@ def add_client():
 def get_client_by_name(name):
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM clients WHERE name=?", (name,))
+    cur.execute(CLIENT_BY_NAME_SQL, (name,))
     row = cur.fetchone()
     conn.close()
     if not row:
@@ -162,14 +164,14 @@ def get_client_by_name(name):
 def generate_program_for_client(name):
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM clients WHERE name=?", (name,))
+    cur.execute(CLIENT_BY_NAME_SQL, (name,))
     row = cur.fetchone()
     if not row:
         conn.close()
         return jsonify({"error": f"Client '{name}' not found"}), 404
 
-    category = random.choice(list(PROGRAM_TEMPLATES.keys()))
-    program_detail = random.choice(PROGRAM_TEMPLATES[category])
+    category = secrets.choice(list(PROGRAM_TEMPLATES.keys()))
+    program_detail = secrets.choice(PROGRAM_TEMPLATES[category])
     cur.execute("UPDATE clients SET program=? WHERE name=?", (program_detail, name))
     conn.commit()
     conn.close()
@@ -201,7 +203,7 @@ def check_client_membership(name):
 def get_client_summary(name):
     conn = db()
     try:
-        client = conn.execute("SELECT * FROM clients WHERE name=?", (name,)).fetchone()
+        client = conn.execute(CLIENT_BY_NAME_SQL, (name,)).fetchone()
         if not client:
             return jsonify({"error": f"Client '{name}' not found"}), 404
         return jsonify(client_summary(conn, client)), 200
