@@ -5,7 +5,7 @@ exercises, progress tracking, metrics, and health quality gates.
 """
 
 import pytest
-from app import create_app
+from app import APP_VERSION, create_app
 
 
 @pytest.fixture
@@ -28,8 +28,8 @@ def client(app):
 class TestSystemEndpoints:
     """Test landing page and health endpoints (Quality Gate for CI/CD & Jenkins)."""
 
-    def test_root_index(self, client):
-        response = client.get("/")
+    def test_api_index(self, client):
+        response = client.get("/api")
         assert response.status_code == 200
         data = response.get_json()
         assert data["service"] == "ACEest Fitness & Gym Web Application"
@@ -42,6 +42,30 @@ class TestSystemEndpoints:
         data = response.get_json()
         assert data["status"] == "UP"
         assert "timestamp" in data
+
+
+class TestDashboard:
+    """Test the server-rendered dashboard UI introduced in v2.0.0."""
+
+    def test_dashboard_renders_empty_stats(self, client):
+        response = client.get("/")
+        assert response.status_code == 200
+        assert b"Dashboard" in response.data
+        assert b"Total Members" in response.data
+        assert f"Version {APP_VERSION}".encode() in response.data
+
+    def test_dashboard_counts_records(self, client):
+        client.post("/api/clients", json={"name": "A", "membership_status": "Active"})
+        client.post("/api/clients", json={"name": "B", "membership_status": "Active"})
+        client.post("/api/clients", json={"name": "C", "membership_status": "Inactive"})
+        workout_id = client.post("/api/workouts", json={"client_name": "A"}).get_json()["id"]
+        client.post("/api/workouts", json={"client_name": "B"})
+        client.post("/api/exercises", json={"workout_id": workout_id, "name": "Squat"})
+
+        response = client.get("/")
+        assert response.status_code == 200
+        for count in (b">3</h2>", b">2</h2>", b">1</h2>"):
+            assert count in response.data
 
 
 class TestAuthEndpoints:
@@ -262,13 +286,13 @@ class TestProgressAndMetricsEndpoints:
 
 
 class TestVersionAndValidation:
-    """Test version metadata and payload validation (v1.0.0 hardening)."""
+    """Test version metadata and payload validation."""
 
     def test_version_endpoint(self, client):
         response = client.get("/version")
         assert response.status_code == 200
         data = response.get_json()
-        assert data["version"] == "1.0.0"
+        assert data["version"] == APP_VERSION
         assert data["track"] == "stable"
 
     def test_version_track_from_environment(self, client, monkeypatch):
@@ -276,7 +300,7 @@ class TestVersionAndValidation:
         assert client.get("/version").get_json()["track"] == "canary"
 
     def test_health_reports_version(self, client):
-        assert client.get("/health").get_json()["version"] == "1.0.0"
+        assert client.get("/health").get_json()["version"] == APP_VERSION
 
     @pytest.mark.parametrize("payload", [
         {"name": "Tony", "age": "abc"},
