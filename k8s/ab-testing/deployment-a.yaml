@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: aceest
-          image: IMAGE_REPO:STABLE_TAG
+          image: docker.io/salandrishirisha/aceest-fitness:3.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000

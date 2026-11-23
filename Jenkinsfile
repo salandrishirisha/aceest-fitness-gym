@@ -11,9 +11,8 @@ pipeline {
 
     parameters {
         choice(name: 'DEPLOY_STRATEGY',
-               choices: ['none', 'rolling', 'blue-green', 'canary', 'canary-promote', 'shadow', 'ab-testing', 'all'],
-               description: 'Kubernetes release strategy for this build')
-        string(name: 'STABLE_TAG', defaultValue: '3.0.0', description: 'Last known good version used for rollback')
+               choices: ['none', 'rolling', 'blue-green', 'canary', 'shadow', 'ab-testing'],
+               description: 'Kubernetes release strategy (needs PUSH_IMAGE so Minikube can pull the image)')
         booleanParam(name: 'PUSH_IMAGE', defaultValue: false, description: 'Push the image to Docker Hub')
     }
 
@@ -124,12 +123,54 @@ pipeline {
         stage('Deploy to Minikube') {
             when { expression { params.DEPLOY_STRATEGY != 'none' } }
             steps {
-                sh 'scripts/deploy.sh "$DEPLOY_STRATEGY" "$IMAGE_REPO" "$APP_VERSION" "$STABLE_TAG"'
+                sh '''
+                    NEW_IMAGE="$IMAGE_REPO:$APP_VERSION"
+                    K="kubectl -n aceest"
+                    kubectl apply -f k8s/namespace.yaml
+                    case "$DEPLOY_STRATEGY" in
+                      rolling)
+                        kubectl apply -f k8s/rolling/
+                        $K rollout status deployment/aceest-rolling --timeout=180s
+                        $K set image deployment/aceest-rolling aceest="$NEW_IMAGE"
+                        $K rollout status deployment/aceest-rolling --timeout=180s ;;
+                      blue-green)
+                        kubectl apply -f k8s/blue-green/
+                        $K set image deployment/aceest-bg-green aceest="$NEW_IMAGE"
+                        $K rollout status deployment/aceest-bg-blue --timeout=180s
+                        $K rollout status deployment/aceest-bg-green --timeout=180s
+                        $K patch service aceest-bg -p '{"spec":{"selector":{"app":"aceest-bg","color":"green"}}}' ;;
+                      canary)
+                        kubectl apply -f k8s/canary/
+                        $K set image deployment/aceest-canary-canary aceest="$NEW_IMAGE"
+                        $K rollout status deployment/aceest-canary-stable --timeout=180s
+                        $K rollout status deployment/aceest-canary-canary --timeout=180s ;;
+                      shadow)
+                        kubectl apply -f k8s/shadow/
+                        $K set image deployment/aceest-shadow-shadow aceest="$NEW_IMAGE"
+                        $K rollout status deployment/aceest-shadow-production --timeout=180s
+                        $K rollout status deployment/aceest-shadow-shadow --timeout=180s ;;
+                      ab-testing)
+                        kubectl apply -f k8s/ab-testing/
+                        $K set image deployment/aceest-ab-b aceest="$NEW_IMAGE"
+                        $K rollout status deployment/aceest-ab-a --timeout=180s
+                        $K rollout status deployment/aceest-ab-b --timeout=180s ;;
+                    esac
+                    $K get deployments,services,ingress
+                '''
             }
             post {
                 failure {
-                    echo "Deployment failed - reverting ${params.DEPLOY_STRATEGY} to ${params.STABLE_TAG}"
-                    sh 'scripts/rollback.sh "$DEPLOY_STRATEGY" || true'
+                    echo "Deployment failed - rolling back ${params.DEPLOY_STRATEGY} to the stable release"
+                    sh '''
+                        K="kubectl -n aceest"
+                        case "$DEPLOY_STRATEGY" in
+                          rolling)    $K rollout undo deployment/aceest-rolling ;;
+                          blue-green) $K patch service aceest-bg -p '{"spec":{"selector":{"app":"aceest-bg","color":"blue"}}}' ;;
+                          canary)     $K scale deployment/aceest-canary-canary --replicas=0 ;;
+                          shadow)     $K scale deployment/aceest-shadow-shadow --replicas=0 ;;
+                          ab-testing) $K delete ingress aceest-ab-b --ignore-not-found ;;
+                        esac
+                    '''
                 }
             }
         }

@@ -2,33 +2,33 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aceest-bg-COLOR
+  name: aceest-bg-green
   namespace: aceest
   labels:
     app: aceest-bg
-    color: COLOR
+    color: green
 spec:
   replicas: 2
   revisionHistoryLimit: 5
   selector:
     matchLabels:
       app: aceest-bg
-      color: COLOR
+      color: green
   template:
     metadata:
       labels:
         app: aceest-bg
-        color: COLOR
+        color: green
     spec:
       containers:
         - name: aceest
-          image: IMAGE_REPO:COLOR_TAG
+          image: docker.io/salandrishirisha/aceest-fitness:4.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
           env:
             - name: DEPLOYMENT_TRACK
-              value: "COLOR"
+              value: "green"
             - name: ACEEST_DB
               value: /app/data/aceest_fitness.db
           volumeMounts:

@@ -7,7 +7,6 @@ __pycache__
 venv
 *.db
 k8s
-scripts
 reports
 Jenkinsfile
 sonar-project.properties

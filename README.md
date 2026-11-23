@@ -15,7 +15,7 @@ Everything runs on a local Rocky Linux 9 VM. No cloud provider is used.
 | `v1.0.0` | `feature/core-api` | REST API with SQLite: clients, programs, workouts, exercises, metrics, progress. Also `/health`, `/version`, input validation and JSON error handlers |
 | `v2.0.0` | `feature/dashboard` | Web dashboard served from the main app at `/` with live counts; the JSON index moves to `/api` |
 | `v3.0.0` | `feature/workouts-progress` | `aceest` package with API/web blueprints; Members, Workouts and Progress pages; BMI and `/api/clients/<name>/summary` |
-| `v4.0.0` | `release/4.0.0` | `X-App-Version` / `X-Deployment-Track` headers, Jenkinsfile, SonarQube, Kubernetes manifests for 5 strategies, deploy and rollback scripts |
+| `v4.0.0` | `release/4.0.0` | `X-App-Version` / `X-Deployment-Track` headers, Jenkinsfile, SonarQube, Kubernetes manifests for 5 strategies with rollback |
 
 The running version and track are shown by `/version`, the response headers and the dashboard footer. This shows which release is serving traffic during a deployment.
 
@@ -50,12 +50,6 @@ Dockerfile                 python:3.11-slim, non-root, gunicorn, healthcheck
 Jenkinsfile                CI/CD pipeline
 sonar-project.properties   SonarQube configuration
 k8s/                       rolling, blue-green, canary, shadow, ab-testing manifests
-scripts/
-  rocky-setup.sh           installs the full toolchain on Rocky Linux 9
-  jenkins-kubeconfig.sh    gives Jenkins access to Minikube
-  build_all_versions.sh    builds/pushes images for v1.0.0 … v4.0.0
-  deploy.sh                deploys a strategy to Minikube
-  rollback.sh              rolls a strategy back to the stable release
 .github/workflows/main.yml GitHub Actions: lint, test, build, container smoke test
 ```
 
@@ -83,37 +77,66 @@ curl http://localhost:5000/version
 The VM needs at least 4 vCPU, 8 GB RAM and 40 GB disk.
 
 ```bash
-sudo dnf -y install git
-git clone https://github.com/salandrishirisha/aceest-fitness-gym.git
-cd aceest-fitness-gym
-sudo bash scripts/rocky-setup.sh        # Git, Python 3.11, Docker, VS Code, Java 21, Jenkins, kubectl, Minikube, SonarQube, sonar-scanner
-# log out and back in (docker group), then:
-minikube start --driver=docker --cpus=2 --memory=4096
-minikube addons enable ingress
-sudo bash scripts/jenkins-kubeconfig.sh
-docker login -u salandrishirisha        # paste a Docker Hub access token
+# Python, Git, unzip
+sudo dnf -y install git python3.11 python3.11-pip unzip wget
+
+# VS Code
+sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+printf "[code]\nname=VS Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc\n" | sudo tee /etc/yum.repos.d/vscode.repo
+sudo dnf -y install code
+
+# Docker
+sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+sudo dnf -y install docker-ce docker-ce-cli containerd.io
+sudo systemctl enable --now docker && sudo usermod -aG docker $USER && newgrp docker
+
+# SonarQube server
+sudo sysctl -w vm.max_map_count=524288
+docker pull sonarqube:latest
+docker run -d --name sonarqube -p 9000:9000 sonarqube:latest
+
+# sonar-scanner CLI
+cd /tmp && wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.3.0.5189-linux-x64.zip
+sudo unzip -q sonar-scanner-cli-7.3.0.5189-linux-x64.zip -d /opt
+sudo mv /opt/sonar-scanner-7.3.0.5189-linux-x64 /opt/sonar-scanner
+sudo ln -sf /opt/sonar-scanner/bin/sonar-scanner /usr/local/bin/sonar-scanner
+
+# Jenkins
+sudo dnf -y install java-21-openjdk fontconfig
+sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/rpm-stable/jenkins.repo
+sudo dnf -y install jenkins
+sudo usermod -aG docker jenkins && sudo systemctl enable --now jenkins
+
+# kubectl + Minikube
+sudo curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+sudo chmod +x /usr/local/bin/kubectl /usr/local/bin/minikube
+minikube start --driver=docker --cpus=2 --memory=4096 && minikube addons enable ingress
+
+# let Jenkins use the Minikube cluster
+sudo mkdir -p /var/lib/jenkins/.kube
+kubectl config view --flatten --minify | sudo tee /var/lib/jenkins/.kube/config >/dev/null
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.kube
 ```
 
 | Tool | URL / command |
 |---|---|
-| Jenkins | `http://<vm-ip>:8080` — initial password: `sudo cat /var/lib/jenkins/secrets/initialAdminPassword` |
-| SonarQube | `http://<vm-ip>:9000` — `admin` / `admin`, then *My Account → Security → Generate token* |
+| Jenkins | `http://localhost:8080` — initial password: `sudo cat /var/lib/jenkins/secrets/initialAdminPassword` |
+| SonarQube | `http://localhost:9000` — `admin` / `admin`, then *My Account → Security → Generate token* |
 | VS Code | `code .` |
 | Kubernetes | `kubectl get all -n aceest`, `minikube dashboard` |
 
 ## 6. Docker Hub Images
 
 ```bash
-scripts/build_all_versions.sh salandrishirisha --push
+docker login -u salandrishirisha                  # password = Docker Hub access token
+for v in 1.0.0 2.0.0 3.0.0 4.0.0; do
+  git archive v$v | docker build -t salandrishirisha/aceest-fitness:$v -
+  docker push salandrishirisha/aceest-fitness:$v
+done
 ```
 
-This builds every tagged version from Git and pushes it to `docker.io/salandrishirisha/aceest-fitness`:
-
-- `1.0.0`
-- `2.0.0`
-- `3.0.0`
-- `4.0.0`
-- `latest`
+Each tag is built from its Git release, so `docker.io/salandrishirisha/aceest-fitness` has the images `1.0.0` to `4.0.0`.
 
 ## 7. Jenkins Pipeline
 
@@ -138,25 +161,26 @@ The pipeline polls the repository every 2 minutes.
 | Docker Build | Tags `X.Y.Z`, `X.Y.Z-b<build>`, `latest` |
 | Container Tests | Pytest inside the image + `/health` and `/version` smoke test |
 | Push to Docker Hub | Pushes all tags |
-| Deploy to Minikube | `scripts/deploy.sh <DEPLOY_STRATEGY>`; on failure runs `scripts/rollback.sh` |
+| Deploy to Minikube | `kubectl apply` of the chosen strategy, then `kubectl set image` to the new version; on failure the stage rolls back |
 | Package Artifacts | Source tarball, image tag and reports archived |
 
 **Parameters**
-- `DEPLOY_STRATEGY`: which deployment strategy to run.
-- `STABLE_TAG`: the rollback target. The default is `3.0.0`.
-- `PUSH_IMAGE`: whether to push the image to Docker Hub.
+- `DEPLOY_STRATEGY`: which deployment strategy to run. The default is `none`.
+- `PUSH_IMAGE`: whether to push the image to Docker Hub. Deploying needs it, because Minikube pulls the image from Docker Hub. This also needs a `dockerhub-creds` credential.
 
 ## 8. Deployment Strategies
 
-Each command below deploys the new version `4.0.0`. The second argument, `3.0.0`, is the stable version.
+The manifests run the stable version `3.0.0` and the new version `4.0.0`:
 
 ```bash
-REPO=docker.io/salandrishirisha/aceest-fitness
-scripts/deploy.sh rolling     $REPO 4.0.0 3.0.0
-scripts/deploy.sh blue-green  $REPO 4.0.0 3.0.0
-scripts/deploy.sh canary      $REPO 4.0.0 3.0.0
-scripts/deploy.sh shadow      $REPO 4.0.0 3.0.0
-scripts/deploy.sh ab-testing  $REPO 4.0.0 3.0.0
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/rolling/
+kubectl -n aceest set image deployment/aceest-rolling aceest=docker.io/salandrishirisha/aceest-fitness:4.0.0
+kubectl apply -f k8s/blue-green/
+kubectl -n aceest patch service aceest-bg -p '{"spec":{"selector":{"app":"aceest-bg","color":"green"}}}'
+kubectl apply -f k8s/canary/
+kubectl apply -f k8s/shadow/
+kubectl apply -f k8s/ab-testing/
 ```
 
 | Strategy | How it works | How to verify |
@@ -170,14 +194,14 @@ scripts/deploy.sh ab-testing  $REPO 4.0.0 3.0.0
 ### Rollback
 
 ```bash
-scripts/rollback.sh rolling       # kubectl rollout undo to the previous revision
-scripts/rollback.sh blue-green    # switch the service selector back to blue
-scripts/rollback.sh canary        # scale the canary to 0, stable keeps 100%
-scripts/rollback.sh shadow        # remove the shadow mirror
-scripts/rollback.sh ab-testing    # send all traffic back to variant A
+kubectl -n aceest rollout undo deployment/aceest-rolling                     # rolling: previous revision
+kubectl -n aceest patch service aceest-bg -p '{"spec":{"selector":{"app":"aceest-bg","color":"blue"}}}'   # blue-green: back to blue
+kubectl -n aceest scale deployment/aceest-canary-canary --replicas=0         # canary: stable keeps 100%
+kubectl -n aceest scale deployment/aceest-shadow-shadow --replicas=0         # shadow: stop mirrored copy
+kubectl -n aceest delete ingress aceest-ab-b                                 # A/B: all traffic to variant A
 ```
 
-If a rolling update fails its rollout check (for example, a bad image or failing probes), `deploy.sh` runs `kubectl rollout undo` automatically. Because `maxUnavailable` is 0, the old pods keep serving traffic throughout.
+If a deployment fails its rollout check in Jenkins (for example, a bad image or failing probes), the pipeline runs the matching rollback command automatically. Because `maxUnavailable` is 0, the old pods keep serving traffic throughout.
 
 ## 9. SonarQube
 
@@ -204,7 +228,7 @@ Results of the local analysis of v4.0.0:
 |---|---|
 | `permission denied ... docker.sock` | `sudo usermod -aG docker $USER` (and `jenkins`), then log in again / `sudo systemctl restart jenkins` |
 | SonarQube container exits | `sudo sysctl -w vm.max_map_count=524288` |
-| Jenkins `kubectl` cannot reach the cluster | `sudo bash scripts/jenkins-kubeconfig.sh` after `minikube start` |
+| Jenkins `kubectl` cannot reach the cluster | Re-run the *let Jenkins use the Minikube cluster* commands from section 5 after `minikube start` |
 | Ingress hosts not resolving | Use `curl -H 'Host: ...' $(minikube ip)` or add `<minikube-ip> shadow.aceest.local ab.aceest.local` to `/etc/hosts` |
 | Docker Hub `429 Too Many Requests` | `docker login` first (authenticated pulls have higher limits) |
 
