@@ -27,13 +27,13 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Compile Python
-        run: python -m compileall -q app.py tests
+        run: python -m compileall -q app.py aceest tests
 
       - name: Stage 1 - Lint
-        run: python -m flake8 app.py tests
+        run: python -m flake8 app.py aceest tests
 
       - name: Stage 2 - Host Unit Tests
-        run: python -m pytest -v --cov=app --cov-report=term-missing tests
+        run: python -m pytest -v --cov=aceest --cov-report=term-missing tests
 
       - name: Stage 3 - Docker Image Assembly
         run: docker build -t aceest-fitness:${{ github.sha }} .
