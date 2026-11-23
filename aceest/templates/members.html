@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Members{% endblock %}
+{% block content %}
+        <header class="topbar">
+            <div>
+                <span class="eyebrow">MANAGEMENT</span>
+                <h1>Members</h1>
+                <p>Registered clients, programs and membership status.</p>
+            </div>
+        </header>
+        <section class="table-card">
+            {% if clients %}
+            <table class="data-table">
+                <thead><tr><th>Name</th><th>Age</th><th>Weight (kg)</th><th>Program</th><th>Membership</th><th>Ends</th></tr></thead>
+                <tbody>
+                {% for c in clients %}
+                <tr>
+                    <td>{{ c.name }}</td><td>{{ c.age or "-" }}</td><td>{{ c.weight or "-" }}</td>
+                    <td>{{ c.program or "-" }}</td>
+                    <td><span class="badge {{ "badge-active" if c.membership_status == "Active" else "badge-inactive" }}">{{ c.membership_status or "-" }}</span></td>
+                    <td>{{ c.membership_end or "-" }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty-state">No members yet. Add one with POST /api/clients.</p>
+            {% endif %}
+        </section>
+{% endblock %}

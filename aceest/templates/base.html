@@ -1,0 +1,42 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACEest Fitness | {% block title %}Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">A</div>
+            <div>
+                <h2>ACEest</h2>
+                <span>FITNESS CLUB</span>
+            </div>
+        </div>
+
+        <p class="menu-label">WORKSPACE</p>
+        {% set pages = [("dashboard", "/", "▦", "Dashboard"), ("members", "/members", "♙", "Members"),
+                        ("workouts", "/workouts", "⌁", "Workouts"), ("progress", "/progress", "↗", "Progress")] %}
+        {% for key, href, icon, label in pages %}
+        <a class="nav-link{% if active == key %} active{% endif %}" href="{{ href }}">{{ icon }} &nbsp; {{ label }}</a>
+        {% endfor %}
+
+        <div class="sidebar-footer">
+            <div class="avatar">AF</div>
+            <div>
+                <strong>Fitness Admin</strong>
+                <span>Management Portal</span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+
+        <footer>ACEest Fitness & Gym Management · Version {{ version }} · {{ track }} track</footer>
+    </main>
+</body>
+</html>

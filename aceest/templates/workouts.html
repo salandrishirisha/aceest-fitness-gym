@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Workouts{% endblock %}
+{% block content %}
+        <header class="topbar">
+            <div>
+                <span class="eyebrow">TRAINING</span>
+                <h1>Workouts</h1>
+                <p>Logged workout sessions across all members.</p>
+            </div>
+        </header>
+        <section class="table-card">
+            {% if workouts %}
+            <table class="data-table">
+                <thead><tr><th>Date</th><th>Member</th><th>Type</th><th>Duration (min)</th><th>Notes</th></tr></thead>
+                <tbody>
+                {% for w in workouts %}
+                <tr><td>{{ w.date }}</td><td>{{ w.client_name }}</td><td>{{ w.workout_type }}</td><td>{{ w.duration_min }}</td><td>{{ w.notes or "-" }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty-state">No workouts logged yet. Add one with POST /api/workouts.</p>
+            {% endif %}
+        </section>
+{% endblock %}

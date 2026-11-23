@@ -270,3 +270,26 @@ footer {
     .stats-grid { gap: 10px; }
     .stat-card { padding: 15px; }
 }
+
+.table-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 8px 18px;
+    margin-bottom: 26px;
+    box-shadow: 0 6px 20px rgba(20, 35, 70, 0.06);
+    overflow-x: auto;
+}
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+    text-align: left;
+    color: #7a8599;
+    font-weight: 600;
+    padding: 12px 10px;
+    border-bottom: 1px solid #eef1f6;
+}
+.data-table td { padding: 12px 10px; border-bottom: 1px solid #f3f5f9; }
+.data-table tr:last-child td { border-bottom: none; }
+.badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.badge-active { background: #e4f8ef; color: #249c6a; }
+.badge-inactive { background: #fdecea; color: #c0453a; }
+.empty-state { color: #7a8599; font-size: 13px; padding: 14px 0; }
