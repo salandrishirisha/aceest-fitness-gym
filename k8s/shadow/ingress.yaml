@@ -1,0 +1,24 @@
+---
+# Live traffic is served by production; every request is mirrored to the
+# shadow (new version) and its responses are discarded by ingress-nginx.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aceest-shadow
+  namespace: aceest
+  annotations:
+    nginx.ingress.kubernetes.io/mirror-target: "http://aceest-shadow-shadow.aceest.svc.cluster.local:5000$request_uri"
+    nginx.ingress.kubernetes.io/mirror-request-body: "on"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: shadow.aceest.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aceest-shadow-production
+                port:
+                  number: 5000

@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-bg-preview
+  namespace: aceest
+spec:
+  type: ClusterIP
+  selector:
+    app: aceest-bg
+    color: green
+  ports:
+    - port: 5000
+      targetPort: 5000
+

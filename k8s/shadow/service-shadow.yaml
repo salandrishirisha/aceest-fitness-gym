@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-shadow-shadow
+  namespace: aceest
+spec:
+  type: ClusterIP
+  selector:
+    app: aceest-shadow
+    track: shadow
+  ports:
+    - port: 5000
+      targetPort: 5000
+
