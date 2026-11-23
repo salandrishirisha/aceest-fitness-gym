@@ -331,3 +331,73 @@ class TestVersionAndValidation:
     def test_wrong_method_returns_json_405(self, client):
         response = client.delete("/api/clients")
         assert response.status_code == 405
+
+
+class TestManagementPages:
+    """Test the members, workouts and progress pages introduced in v3.0.0."""
+
+    @pytest.mark.parametrize("path, heading, empty_text", [
+        ("/members", b"Members", b"No members yet"),
+        ("/workouts", b"Workouts", b"No workouts logged yet"),
+        ("/progress", b"Progress", b"No progress records yet"),
+    ])
+    def test_pages_render_empty_state(self, client, path, heading, empty_text):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert heading in response.data
+        assert empty_text in response.data
+
+    def test_pages_list_records(self, client):
+        client.post("/api/clients", json={"name": "Peter Parker", "membership_status": "Active"})
+        client.post("/api/workouts", json={"client_name": "Peter Parker",
+                                           "workout_type": "Agility"})
+        client.post("/api/progress", json={"client_name": "Peter Parker", "week": "Week 1",
+                                           "adherence": 88})
+        client.post("/api/metrics", json={"client_name": "Peter Parker", "weight": 70.5})
+
+        assert b"Peter Parker" in client.get("/members").data
+        assert b"Agility" in client.get("/workouts").data
+        progress_page = client.get("/progress").data
+        assert b"88%" in progress_page
+        assert b"70.5" in progress_page
+
+
+class TestClientSummary:
+    """Test the aggregated client summary endpoint."""
+
+    def test_summary_aggregates_activity(self, client):
+        client.post("/api/clients", json={
+            "name": "Steve Rogers", "height": 188, "weight": 100,
+            "target_adherence": 80, "membership_status": "Active"
+        })
+        client.post("/api/workouts", json={"client_name": "Steve Rogers", "duration_min": 45})
+        client.post("/api/workouts", json={"client_name": "Steve Rogers", "duration_min": 30})
+        client.post("/api/progress", json={"client_name": "Steve Rogers", "week": "W1",
+                                           "adherence": 90})
+        client.post("/api/progress", json={"client_name": "Steve Rogers", "week": "W2",
+                                           "adherence": 80})
+        client.post("/api/metrics", json={"client_name": "Steve Rogers", "date": "2026-10-01",
+                                          "weight": 95})
+
+        response = client.get("/api/clients/Steve Rogers/summary")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["total_workouts"] == 2
+        assert data["total_minutes"] == 75
+        assert data["average_adherence"] == 85.0
+        assert data["on_track"] is True
+        assert data["bmi"] == 26.9
+        assert data["bmi_category"] == "Overweight"
+        assert data["latest_metrics"]["weight"] == 95
+
+    def test_summary_without_activity(self, client):
+        client.post("/api/clients", json={"name": "Wanda"})
+        data = client.get("/api/clients/Wanda/summary").get_json()
+        assert data["total_workouts"] == 0
+        assert data["average_adherence"] is None
+        assert data["on_track"] is False
+        assert data["bmi_category"] == "Unknown"
+        assert data["latest_metrics"] is None
+
+    def test_summary_client_not_found(self, client):
+        assert client.get("/api/clients/Nobody/summary").status_code == 404
