@@ -259,3 +259,51 @@ class TestProgressAndMetricsEndpoints:
     def test_add_metrics_missing_client(self, client):
         res = client.post("/api/metrics", json={"weight": 80.0})
         assert res.status_code == 400
+
+
+class TestVersionAndValidation:
+    """Test version metadata and payload validation (v1.0.0 hardening)."""
+
+    def test_version_endpoint(self, client):
+        response = client.get("/version")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["version"] == "1.0.0"
+        assert data["track"] == "stable"
+
+    def test_version_track_from_environment(self, client, monkeypatch):
+        monkeypatch.setenv("DEPLOYMENT_TRACK", "canary")
+        assert client.get("/version").get_json()["track"] == "canary"
+
+    def test_health_reports_version(self, client):
+        assert client.get("/health").get_json()["version"] == "1.0.0"
+
+    @pytest.mark.parametrize("payload", [
+        {"name": "Tony", "age": "abc"},
+        {"name": "Tony", "weight": -5},
+        {"name": "Tony", "age": True},
+        {"name": 123},
+    ])
+    def test_add_client_rejects_invalid_values(self, client, payload):
+        response = client.post("/api/clients", json=payload)
+        assert response.status_code == 400
+        assert "error" in response.get_json()
+
+    def test_add_progress_rejects_adherence_over_100(self, client):
+        payload = {"client_name": "Bruce Wayne", "week": "Week 2", "adherence": 150}
+        response = client.post("/api/progress", json=payload)
+        assert response.status_code == 400
+
+    def test_add_exercise_rejects_non_numeric_sets(self, client):
+        payload = {"workout_id": 1, "name": "Squat", "sets": "many"}
+        response = client.post("/api/exercises", json=payload)
+        assert response.status_code == 400
+
+    def test_unknown_route_returns_json_404(self, client):
+        response = client.get("/does-not-exist")
+        assert response.status_code == 404
+        assert response.get_json()["error"] == "Resource not found"
+
+    def test_wrong_method_returns_json_405(self, client):
+        response = client.delete("/api/clients")
+        assert response.status_code == 405
