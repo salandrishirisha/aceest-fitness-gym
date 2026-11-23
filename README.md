@@ -1,538 +1,217 @@
 # ACEest Fitness & Gym — Automated CI/CD DevOps Pipeline
 
-[![GitHub Actions](https://github.com/salandrishirisha/aceest-fitness-gym/actions/workflows/main.yml/badge.svg)](https://github.com/salandrishirisha/aceest-fitness-gym/actions/workflows/main.yml)
-[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![Flask](https://img.shields.io/badge/Flask-3.0.3-lightgrey.svg)](https://flask.palletsprojects.com/)
-[![Docker](https://img.shields.io/badge/Docker-Containerized-blue.svg)](https://www.docker.com/)
-[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions%20%7C%20Jenkins-brightgreen.svg)](https://github.com/salandrishirisha/aceest-fitness-gym/actions)
+A Flask fitness management application with a fully automated CI/CD pipeline. A push to GitHub triggers this flow:
 
-## 1. Project Overview
+**Jenkins → Pytest → SonarQube quality gate → Docker Hub → Kubernetes (Minikube)**
 
-**ACEest Fitness & Gym** is a Flask-based fitness and gym management application developed to demonstrate automated software delivery using DevOps practices.
+Kubernetes then releases the build with a Rolling, Blue-Green, Canary, Shadow or A/B strategy, and each strategy can be rolled back.
 
-The project follows an incremental development approach:
+Everything runs on a local Rocky Linux 9 VM. No cloud provider is used.
 
-- **Version 1 — Core Application:** Flask-based fitness management backend with REST API endpoints and SQLite persistence.
-- **Version 2 — Dashboard UI:** A lightweight web dashboard that reads summary statistics from the existing Version 1 SQLite database and presents gym information through a browser-based interface.
-- **Automated CI/CD:** GitHub Actions and Jenkins validate source code, run automated tests, build Docker images, and verify containerized application behavior.
+## 1. Application Versions
 
-The objective is to demonstrate how an application can evolve from a core backend into a user-facing interface while maintaining automated quality checks throughout development.
-
-## 2. Project Objectives
-
-- Maintain source code using Git and GitHub.
-- Implement automated linting and Python compilation checks.
-- Validate application behavior through Pytest.
-- Package the application in a Docker container.
-- Run tests inside the built container.
-- Automate validation through GitHub Actions.
-- Use Jenkins as an additional build and quality-validation pipeline.
-- Demonstrate incremental application development through Version 1 and Version 2.
-
-## 3. Architecture
-
-```text
-                    Developer / VS Code
-                            |
-                       Git Commit
-                            |
-                         GitHub
-                            |
-                 Push / Pull Request
-                            |
-                 GitHub Actions CI
-                            |
-          +-----------------+------------------+
-          |                 |                  |
-     Python Compile      Flake8             Pytest
-          |                 |                  |
-          +-----------------+------------------+
-                            |
-                     Docker Image Build
-                            |
-                  Containerized Unit Tests
-                            |
-                  Container Health Check
-
-
-             Jenkins Secondary Validation
-                            |
-                     Git Checkout
-                            |
-                   Version 2 Workspace
-                            |
-                  Docker Image Build
-                            |
-                    Flake8 and Pytest
-                            |
-                    Build Result
-
-
-     Version 1 Core Application
-        Flask REST API + SQLite
-                  |
-                  | Existing SQLite database
-                  |
-     Version 2 Dashboard UI
-        Flask + HTML/Jinja + CSS
-                  |
-             Browser on Port 5001
-```
-
-**Architecture note:** Version 2 is an incremental dashboard application that reads summary statistics from the existing Version 1 SQLite database. The Version 1 API and Version 2 dashboard run separately, using ports 5000 and 5001 respectively when run locally. The dashboard is not a replacement for the Version 1 API.
-
-## 4. Application Versions
-
-### Version 1 — Core Fitness Management Backend
-
-Version 1 provides the core fitness management functionality through Flask REST API endpoints and SQLite persistence.
-
-Key capabilities include:
-
-- Client and membership management.
-- Workout and exercise logging.
-- Progress and fitness metric recording.
-- Authentication endpoint.
-- Membership status and workout program functionality, where supported by the application.
-- Health endpoint for application status checks.
-
-Representative API endpoints include:
-
-| Endpoint | Purpose |
-|---|---|
-| `/api/auth/login` | Authentication |
-| `/api/clients` | Client management |
-| `/api/workouts` | Workout management |
-| `/api/exercises` | Exercise logging |
-| `/api/progress` | Progress tracking |
-| `/api/metrics` | Fitness metric recording |
-| `/health` | Application health check |
-
-The exact request methods and payloads depend on the implemented endpoint.
-
-**Default local URL:** `http://127.0.0.1:5000`
-
-### Version 2 — Dashboard UI
-
-Version 2 introduces a browser-based dashboard as an incremental enhancement to the core application.
-
-The dashboard presents summary information such as:
-
-- **Total Members:** Number of clients registered in the database.
-- **Active Memberships:** Number of clients whose membership status is `Active`.
-- **Total Workouts:** Number of recorded workouts.
-- **Total Exercises:** Number of recorded exercises.
-
-The dashboard uses Flask and Jinja templates to render HTML, with CSS styling for the user interface.
-
-Version 2 also exposes a health endpoint:
-
-```http
-GET /health
-```
-
-Expected response:
-
-```json
-{
-  "status": "UP",
-  "version": "2.0.0"
-}
-```
-
-**Default local URL:** `http://127.0.0.1:5001`
-
-**Dashboard URL:** `http://127.0.0.1:5001/`
-
-### Incremental Development Strategy
-
-| Area | Version 1 | Version 2 |
+| Tag | Branch | What it adds |
 |---|---|---|
-| Primary purpose | Core fitness management | Dashboard and summary visualization |
-| Interface | REST API | Browser-based UI |
-| Technology | Flask, SQLite | Flask, Jinja templates, CSS, SQLite |
-| Default port | 5000 | 5001 |
-| Data | Core application database | Reads summary statistics from the existing database |
-| Validation | Automated tests and linting | Dashboard tests, health check, linting, Docker validation |
+| `v1.0.0` | `feature/core-api` | REST API with SQLite: clients, programs, workouts, exercises, metrics, progress. Also `/health`, `/version`, input validation and JSON error handlers |
+| `v2.0.0` | `feature/dashboard` | Web dashboard served from the main app at `/` with live counts; the JSON index moves to `/api` |
+| `v3.0.0` | `feature/workouts-progress` | `aceest` package with API/web blueprints; Members, Workouts and Progress pages; BMI and `/api/clients/<name>/summary` |
+| `v4.0.0` | `release/4.0.0` | `X-App-Version` / `X-Deployment-Track` headers, Jenkinsfile, SonarQube, Kubernetes manifests for 5 strategies, deploy and rollback scripts |
 
-The Version 2 dashboard is intended to reuse existing application data rather than introduce a separate fitness database.
+The running version and track are shown by `/version`, the response headers and the dashboard footer. This shows which release is serving traffic during a deployment.
 
-## 5. Repository Structure
+## 2. Branching and Commits
 
-```text
-aceest-fitness-gym/
-├── .github/
-│   └── workflows/
-│       └── main.yml
-├── app.py
-├── requirements.txt
-├── tests/
-│   └── ...
-├── version-2/
-│   ├── app.py
-│   ├── requirements.txt
-│   ├── .flake8
-│   ├── Dockerfile
-│   ├── .dockerignore
-│   ├── Jenkinsfile
-│   ├── tests/
-│   │   └── test_app.py
-│   ├── templates/
-│   │   └── index.html
-│   └── static/
-│       └── css/
-│           └── style.css
-└── README.md
+```
+main ──────●────────●────────●────────●     (tags v1.0.0 … v4.0.0)
+            \      / \      / \      /
+develop ─────●────●───●────●───●────●
+              \  /     \  /     \  /
+          feature/core-api  feature/dashboard  feature/workouts-progress  release/4.0.0
 ```
 
-The Version 1 source and tests remain at the repository root. Version 2 has its own application, dependencies, tests, Docker configuration, templates, and static resources.
+- Features are built on `feature/*` branches and merged into `develop` with `--no-ff`.
+- `develop` is merged into `main` for each release, and the release is tagged.
+- Commit messages follow Conventional Commits: `feat:`, `fix:`, `test:`, `ci:`, `build:`, `refactor:`, `docs:`, `chore:`.
 
-## 6. Technology Stack
+## 3. Repository Structure
 
-| Technology | Usage |
-|---|---|
-| Python 3.11 | Application and automation runtime |
-| Flask 3.0.3 | Web framework |
-| SQLite | Persistent application data |
-| HTML and Jinja | Dashboard presentation |
-| CSS | Dashboard styling |
-| Pytest 8.2.2 | Automated testing |
-| pytest-cov 5.0.0 | Test coverage reporting |
-| Flake8 7.1.0 | Code-quality checks |
-| Gunicorn 22.0.0 | Production-style WSGI server |
-| Docker | Container image creation and execution |
-| Git and GitHub | Source control and collaboration |
-| GitHub Actions | Automated CI workflow |
-| Jenkins | Secondary build and validation pipeline |
-| Rocky Linux | Server environment for Docker and Jenkins |
+```
+app.py                     WSGI entry point (gunicorn app:app)
+aceest/                    application package
+  __init__.py              create_app(), APP_VERSION, release headers
+  api.py                   REST blueprint
+  web.py                   dashboard / members / workouts / progress pages
+  services.py              BMI + client summary logic
+  validation.py            payload validation helpers
+  db.py                    SQLite connection and schema
+  templates/ static/       UI
+tests/                     Pytest suite (57 tests, ~96% coverage)
+Dockerfile                 python:3.11-slim, non-root, gunicorn, healthcheck
+Jenkinsfile                CI/CD pipeline
+sonar-project.properties   SonarQube configuration
+k8s/                       rolling, blue-green, canary, shadow, ab-testing manifests
+scripts/
+  rocky-setup.sh           installs the full toolchain on Rocky Linux 9
+  jenkins-kubeconfig.sh    gives Jenkins access to Minikube
+  build_all_versions.sh    builds/pushes images for v1.0.0 … v4.0.0
+  deploy.sh                deploys a strategy to Minikube
+  rollback.sh              rolls a strategy back to the stable release
+.github/workflows/main.yml GitHub Actions: lint, test, build, container smoke test
+```
 
-## 7. Prerequisites
-
-For local development:
-
-- Python 3.11 recommended.
-- Git.
-- pip.
-- Docker Desktop on Windows or Docker Engine on Linux.
-
-For the Rocky Linux environment:
-
-- Rocky Linux VM with repository access.
-- Docker Engine installed and running.
-- Git installed.
-- VS Code Remote SSH or an SSH terminal.
-
-For Jenkins:
-
-- Jenkins installed and running.
-- Git configured for repository checkout.
-- Docker installed on the Jenkins agent.
-- Jenkins user granted appropriate permission to execute Docker commands.
-
-## 8. Clone the Repository
+## 4. Run Locally
 
 ```bash
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python -m flake8 app.py aceest tests
+python -m pytest --cov --cov-report=term-missing
+python app.py                       # http://localhost:5000
+```
+
+With Docker:
+
+```bash
+docker build -t aceest-fitness:4.0.0 .
+docker run --rm aceest-fitness:4.0.0 python -m pytest -q tests
+docker run -d -p 5000:5000 --name aceest aceest-fitness:4.0.0
+curl http://localhost:5000/version
+```
+
+## 5. Rocky Linux VM Setup
+
+The VM needs at least 4 vCPU, 8 GB RAM and 40 GB disk.
+
+```bash
+sudo dnf -y install git
 git clone https://github.com/salandrishirisha/aceest-fitness-gym.git
 cd aceest-fitness-gym
+sudo bash scripts/rocky-setup.sh        # Git, Python 3.11, Docker, VS Code, Java 17, Jenkins, kubectl, Minikube, SonarQube
+# log out and back in (docker group), then:
+minikube start --driver=docker --cpus=2 --memory=4096
+minikube addons enable ingress
+sudo bash scripts/jenkins-kubeconfig.sh
+docker login -u salandrishirisha        # paste a Docker Hub access token
 ```
 
-## 9. Run Version 1 Locally
-
-Create a virtual environment from the repository root.
-
-### Windows
-
-```powershell
-python -m venv .venv
-.venv\Scripts\activate
-python -m pip install -r requirements.txt
-python app.py
-```
-
-### Linux / Rocky Linux
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python app.py
-```
-
-Open:
-
-`http://127.0.0.1:5000`
-
-Test the health endpoint if supported by the Version 1 application:
-
-```bash
-curl http://127.0.0.1:5000/health
-```
-
-## 10. Run Version 2 Locally
-
-Open a terminal in the `version-2` directory.
-
-```bash
-cd version-2
-```
-
-Install the Version 2 dependencies:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-Run the dashboard application:
-
-```bash
-python app.py
-```
-
-Open the dashboard:
-
-`http://127.0.0.1:5001/`
-
-Check the health endpoint:
-
-```bash
-curl http://127.0.0.1:5001/health
-```
-
-Expected response:
-
-```json
-{
-  "status": "UP",
-  "version": "2.0.0"
-}
-```
-
-## 11. Automated Testing and Linting
-
-The project uses Pytest to verify application behavior and Flake8 to check code quality.
-
-### Version 1
-
-From the repository root, install dependencies and run:
-
-```bash
-python -m pip install -r requirements.txt
-python -m pytest -v
-```
-
-Run linting:
-
-```bash
-python -m flake8 .
-```
-
-### Version 2
-
-From the `version-2` directory:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-Compile the application and tests:
-
-```bash
-python -m compileall -q app.py tests
-```
-
-Run Flake8:
-
-```bash
-python -m flake8 app.py tests
-```
-
-Run the tests with coverage:
-
-```bash
-python -m pytest -v --cov=app --cov-report=term-missing tests
-```
-
-The pipeline should proceed only when the required checks succeed. Test counts and coverage percentages should be taken from actual test output rather than assumed.
-
-## 12. Docker Containerization — Version 2
-
-Version 2 uses the `version-2/Dockerfile` to build a container image based on `python:3.11-slim`.
-
-The container exposes port 5001 and runs the Flask application through Gunicorn.
-
-### Build the image
-
-Run these commands from the `version-2` directory:
-
-```bash
-docker build -t aceest-fitness-v2:local .
-```
-
-### Run the unit tests inside the image
-
-```bash
-docker run --rm aceest-fitness-v2:local python -m pytest -v tests
-```
-
-### Start the dashboard container
-
-```bash
-docker run -d \
-  --name aceest-v2 \
-  -p 5001:5001 \
-  aceest-fitness-v2:local
-```
-
-### Verify the container
-
-```bash
-docker ps
-curl http://127.0.0.1:5001/health
-```
-
-Open the dashboard at:
-
-`http://127.0.0.1:5001/`
-
-### Stop the container
-
-```bash
-docker stop aceest-v2
-docker rm aceest-v2
-```
-
-The dashboard uses the database path configured by Version 2. If the SQLite database must persist across container restarts or be shared with Version 1, configure an appropriate Docker volume or bind mount and ensure both applications use the same database file.
-
-## 13. GitHub Actions CI Pipeline
-
-Workflow file:
-
-`.github/workflows/main.yml`
-
-Repository:
-
-https://github.com/salandrishirisha/aceest-fitness-gym
-
-GitHub Actions is configured to trigger on pushes and pull requests targeting the `main` branch.
-
-### Version 2 CI stages
-
-1. **Checkout Source Code** — Retrieves the repository.
-2. **Set up Python 3.11** — Prepares the CI runtime and pip cache.
-3. **Install Dependencies** — Installs the pinned Version 2 packages.
-4. **Compile Python** — Checks application and test-file compilation.
-5. **Lint** — Runs Flake8.
-6. **Host Unit Tests** — Runs Pytest and produces coverage output.
-7. **Docker Image Assembly** — Builds the Version 2 Docker image.
-8. **Containerized Unit Tests** — Executes the tests inside the built image.
-9. **Container Health Check** — Starts the container and verifies `/health`.
-
-The workflow provides automated feedback on code quality, test results, Docker build integrity, and application startup.
-
-### View the workflow
-
-[Open ACEest Fitness GitHub Actions](https://github.com/salandrishirisha/aceest-fitness-gym/actions)
-
-A successful workflow is indicated by a green check mark. A failed run can be investigated by opening the failed job and reviewing its logs.
-
-## 14. Jenkins BUILD Pipeline
-
-Jenkins provides an additional automated validation pipeline using the same GitHub repository.
-
-### Configuration
-
-- **Job type:** Freestyle project with an Execute shell build step, or a Pipeline job if using the repository's `Jenkinsfile`.
-- **Source repository:** `https://github.com/salandrishirisha/aceest-fitness-gym.git`
-- **Branch:** `main`
-- **Application directory:** `version-2`
-
-### Version 2 validation stages
-
-1. Git checkout.
-2. Docker availability check.
-3. Docker image build.
-4. Flake8 execution inside Docker.
-5. Pytest execution inside Docker.
-6. Jenkins build result reporting.
-
-The Jenkins build script uses the Docker image to run quality checks, avoiding the need for pip on the Jenkins host.
-
-Jenkins must have access to the Docker daemon. On Rocky Linux, the Jenkins service account may require Docker group membership or another approved Docker access configuration. Docker access is highly privileged and should be restricted to trusted accounts.
-
-### Expected result
-
-```text
-===== ACEest Fitness Version 2 Jenkins Build =====
-===== Build Docker Image =====
-===== Run Flake8 Inside Docker =====
-===== Run Unit Tests Inside Docker =====
-===== Jenkins Build Successful =====
-Finished: SUCCESS
-```
-
-These lines are the expected successful output, not a claim that every build has already passed.
-
-## 15. Version Control Strategy
-
-Git is used to track incremental development, fixes, and DevOps automation.
-
-Suggested Conventional Commit prefixes:
-
-| Prefix | Purpose |
+| Tool | URL / command |
 |---|---|
-| `feat:` | Introduces application functionality |
-| `fix:` | Corrects a defect |
-| `refactor:` | Improves internal code structure |
-| `build:` | Updates build configuration or dependencies |
-| `test:` | Adds or modifies automated tests |
-| `ci:` | Updates CI/CD automation |
-| `docs:` | Updates README or other documentation |
+| Jenkins | `http://<vm-ip>:8080` — initial password: `sudo cat /var/lib/jenkins/secrets/initialAdminPassword` |
+| SonarQube | `http://<vm-ip>:9000` — `admin` / `admin`, then *My Account → Security → Generate token* |
+| VS Code | `code .` |
+| Kubernetes | `kubectl get all -n aceest`, `minikube dashboard` |
 
-Example commands:
+## 6. Docker Hub Images
 
 ```bash
-git status
-git add README.md
-git commit -m "docs: document Version 2 UI and CI pipeline"
-git push origin main
+scripts/build_all_versions.sh salandrishirisha --push
 ```
 
-## 16. Troubleshooting
+This builds every tagged version from Git and pushes it to `docker.io/salandrishirisha/aceest-fitness`:
 
-### Docker permission denied
+- `1.0.0`
+- `2.0.0`
+- `3.0.0`
+- `4.0.0`
+- `latest`
 
-If Docker returns a permission error, check the Docker daemon and the Jenkins service account's access to the Docker socket.
+## 7. Jenkins Pipeline
+
+**Setup**
+1. Install the suggested plugins, plus *Pipeline: Stage View* and *Docker Pipeline*.
+2. Add two credentials under *Manage Jenkins → Credentials*:
+   - `dockerhub-creds`: *Username with password*. Use your Docker Hub username and access token.
+   - `sonar-token`: *Secret text*. Use the SonarQube token.
+3. Create a *Pipeline* job with:
+   - *Pipeline script from SCM*, Git, this repository's URL.
+   - Branch `*/main`.
+   - Script path `Jenkinsfile`.
+
+The pipeline polls the repository every 2 minutes.
+
+| Stage | Purpose |
+|---|---|
+| Checkout | Reads `APP_VERSION`, names the build `vX.Y.Z (sha)` |
+| Install & Lint | venv, dependencies, `compileall`, Flake8 |
+| Unit Tests | Pytest with coverage and JUnit reports |
+| SonarQube Analysis & Quality Gate | Scanner container, fails the build if the gate fails |
+| Docker Build | Tags `X.Y.Z`, `X.Y.Z-b<build>`, `latest` |
+| Container Tests | Pytest inside the image + `/health` and `/version` smoke test |
+| Push to Docker Hub | Pushes all tags |
+| Deploy to Minikube | `scripts/deploy.sh <DEPLOY_STRATEGY>`; on failure runs `scripts/rollback.sh` |
+| Package Artifacts | Source tarball, image tag and reports archived |
+
+**Parameters**
+- `DEPLOY_STRATEGY`: which deployment strategy to run.
+- `STABLE_TAG`: the rollback target. The default is `3.0.0`.
+- `PUSH_IMAGE`: whether to push the image to Docker Hub.
+
+## 8. Deployment Strategies
+
+Each command below deploys the new version `4.0.0`. The second argument, `3.0.0`, is the stable version.
 
 ```bash
-sudo systemctl status docker
-sudo -u jenkins -g docker docker ps
+REPO=docker.io/salandrishirisha/aceest-fitness
+scripts/deploy.sh rolling     $REPO 4.0.0 3.0.0
+scripts/deploy.sh blue-green  $REPO 4.0.0 3.0.0
+scripts/deploy.sh canary      $REPO 4.0.0 3.0.0
+scripts/deploy.sh shadow      $REPO 4.0.0 3.0.0
+scripts/deploy.sh ab-testing  $REPO 4.0.0 3.0.0
 ```
 
+| Strategy | How it works | How to verify |
+|---|---|---|
+| Rolling | One deployment (3 replicas); pods are replaced one at a time (`maxSurge 1`, `maxUnavailable 0`) behind readiness probes | `curl $(minikube ip):30081/version` |
+| Blue-Green | `blue` (stable) and `green` (new) run side by side; green is tested on the preview service, then the main service selector switches to green | `curl $(minikube ip):30082/version` |
+| Canary | 4 stable pods + 1 canary pod behind one service, so about 20% of traffic goes to the new version; `canary-promote` moves everything to the new version | repeat `curl $(minikube ip):30083/version` |
+| Shadow | Production serves all users; ingress-nginx mirrors every request to the shadow deployment and discards its responses | `curl -H 'Host: shadow.aceest.local' $(minikube ip)/version`, then `kubectl logs -n aceest -l track=shadow` |
+| A/B testing | Variant A is the default; requests with `X-Variant: B` go to variant B, plus a 50% weighted split | `curl -H 'Host: ab.aceest.local' -H 'X-Variant: B' $(minikube ip)/version` |
 
-## 17. Security and Operational Considerations
+### Rollback
 
-- Keep credentials, tokens, and secrets out of source control.
-- Use environment variables or an appropriate secrets manager for sensitive configuration.
-- Restrict access to the Docker daemon and Jenkins administration.
-- Avoid exposing development and management endpoints publicly without appropriate access controls.
-- Use persistent storage for SQLite data when container restarts must preserve records.
-- Treat successful CI tests as quality evidence, not a substitute for production security and operational reviews.
+```bash
+scripts/rollback.sh rolling       # kubectl rollout undo to the previous revision
+scripts/rollback.sh blue-green    # switch the service selector back to blue
+scripts/rollback.sh canary        # scale the canary to 0, stable keeps 100%
+scripts/rollback.sh shadow        # remove the shadow mirror
+scripts/rollback.sh ab-testing    # send all traffic back to variant A
+```
 
-![alt text](image-1.png)
-## 18. Conclusion
+If a rolling update fails its rollout check (for example, a bad image or failing probes), `deploy.sh` runs `kubectl rollout undo` automatically. Because `maxUnavailable` is 0, the old pods keep serving traffic throughout.
 
-ACEest Fitness & Gym demonstrates an incremental application lifecycle, from a Flask-based fitness management backend to a browser-based dashboard, supported by automated DevOps practices.
+## 9. SonarQube
 
-The project combines GitHub source control, Pytest, Flake8, Docker containerization, GitHub Actions, and Jenkins to establish repeatable validation steps before changes are considered ready.
+`sonar-project.properties` analyses `app.py` and `aceest/`, and reads `reports/coverage.xml` and `reports/junit.xml`. To run it by hand:
 
-The Version 2 dashboard extends the application interface while retaining the existing SQLite data model, illustrating how a small application can evolve through incremental development and automated quality checks.
+```bash
+python -m pytest --cov --cov-report=xml:reports/coverage.xml --junitxml=reports/junit.xml
+docker run --rm --network host -e SONAR_HOST_URL=http://localhost:9000 -e SONAR_TOKEN=<token> \
+  -v "$PWD:/usr/src" sonarsource/sonar-scanner-cli
+```
 
-## 19. Academic Reference
+Results of the local analysis of v4.0.0:
+
+| Metric | Value |
+|---|---|
+| Quality gate | Passed |
+| Bugs | 0 |
+| Vulnerabilities | 0 |
+| Coverage | ~96% |
+| Duplications | 0% |
+
+## 10. Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `permission denied ... docker.sock` | `sudo usermod -aG docker $USER` (and `jenkins`), then log in again / `sudo systemctl restart jenkins` |
+| SonarQube container exits | `sudo sysctl -w vm.max_map_count=524288` |
+| Jenkins `kubectl` cannot reach the cluster | `sudo bash scripts/jenkins-kubeconfig.sh` after `minikube start` |
+| Ingress hosts not resolving | Use `curl -H 'Host: ...' $(minikube ip)` or add `<minikube-ip> shadow.aceest.local ab.aceest.local` to `/etc/hosts` |
+| Docker Hub `429 Too Many Requests` | `docker login` first (authenticated pulls have higher limits) |
+
+## 11. Academic Reference
 
 - **Course:** CSIZG514 / SEZG514 — Introduction to DevOps
 - **Institution:** BITS Pilani
 - **Name:** SALANDRI SHIRISHA
 - **Application:** ACEest Fitness & Gym
-- **Project focus:** Automated CI/CD pipelines, Docker containerization, GitHub Actions, Jenkins, automated testing, and incremental UI development
-
-
